@@ -1,0 +1,1 @@
+1 3 * * * ruby /home/himdel/feed.pulp/pulp-changes.rb > /var/www/html/feed/pulp-changes.json
