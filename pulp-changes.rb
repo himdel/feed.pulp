@@ -7,27 +7,58 @@ require 'open-uri'
 
 FEED_TITLE = "Pulp Changes"
 FEED_SOURCES = [
-  "https://docs.pulpproject.org/pulpcore/changes.html",
-  "https://docs.pulpproject.org/pulp_ansible/changes.html",
-  "https://docs.pulpproject.org/pulp_container/changes.html",
+  "https://pulpproject.org/pulpcore/changes/",
+  "https://pulpproject.org/pulp_ansible/changes/",
+  "https://pulpproject.org/pulp_container/changes/",
+  "https://pulpproject.org/pulp_deb/changes/",
+  "https://pulpproject.org/pulp_gem/changes/",
+  "https://pulpproject.org/pulp_maven/changes/",
+  "https://pulpproject.org/pulp_ostree/changes/",
+  "https://pulpproject.org/pulp_python/changes/",
+  "https://pulpproject.org/pulp_rpm/changes/",
+  "https://pulpproject.org/pulp-operator/changes/",
+  "https://pulpproject.org/pulp-cli/changes/",
 ]
 
 def items
   sections = FEED_SOURCES.map do |source|
     what = source.split('/')[-2]
-    list = Nokogiri::HTML(URI.open(source)) / "#changelog"
+    list = Nokogiri::HTML(URI.open(source)) / ".md-content"
 
-    (list / "> section").map do |section|
-      title = (section / "> h2").children.first.to_s
-      date = if title.match?(/\(\d{4}-\d{2}-\d{2}\)/) then title.sub(/^.*\((.*)\).*$/, '\1') else nil end
+    # remove all those ¶
+    list.search('.headerlink').remove
 
-      {
-        :title => what + ' ' + title,
-        :date => date,
-        :href => source + '#' + CGI.escape(title),
-        :html => section.to_html,
-      }
+    items = []
+    item = nil
+    (list / "> article > *").map do |child|
+      # [start of version
+      if child.name == 'h2'
+        version = child[:id]
+        title = child.children.first.to_s
+        date = if title.match?(/\(\d{4}-\d{2}-\d{2}\)/) then
+          title.sub(/^.*\((.*)\).*$/, '\1')
+        else
+          nil
+        end
+        child = nil
+
+        item = {
+          :title => what + ' ' + title,
+          :date => date,
+          :href => source + '#' + CGI.escape(version),
+          :html => '',
+        }
+
+        items << item
+      end
+      # end of version)
+      if child and child.name == 'hr'
+        item = nil
+      end
+
+      item[:html] << child.to_html unless item.nil? or child.nil?
     end
+    items
   end.flatten.sort_by { |x| x[:date] || '' }.reverse
 end
 
